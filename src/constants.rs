@@ -1,4 +1,5 @@
 #![allow(dead_code)]  // unused constants
+#![cfg_attr(rustfmt, rustfmt_skip)]
 
 /*
 Get message from client:

@@ -1,4 +1,4 @@
-macro_rules! rep { ($_:tt; $($r:tt)+) => {$($r)+}; }  // repeat _ times
+macro_rules! rep { ($_:tt; $($r:tt)+) => {$($r)+}; } // repeat _ times
 
 macro_rules! build_buf {
     (
@@ -43,7 +43,8 @@ const fn pad_buf<const L: usize>(pad: [u8; PADDING_SIZE]) -> [u8; L] {
     // and END_PADDING at the end. This function is const!
     let mut buf = [0; L];
     let mut i = 0;
-    while {  // for-loops aren't const :/
+    while {
+        // for-loops aren't const :/
         buf[i] = pad[i];
         buf[buf.len() - PADDING_SIZE + i] = pad::END_PADDING[i];
         i += 1;
@@ -51,10 +52,11 @@ const fn pad_buf<const L: usize>(pad: [u8; PADDING_SIZE]) -> [u8; L] {
     } {}
     buf
 }
-macro_rules! prepad {  // apply pad_buf
+// apply pad_buf
+macro_rules! prepad {
     ($pad:expr) => {
         use super::pad;
-        pub type PadBuf = [u8; SIZE + 2*PADDING_SIZE];
+        pub type PadBuf = [u8; SIZE + 2 * PADDING_SIZE];
         pub const PREPAD: PadBuf = super::pad_buf($pad);
         pub fn pad_split(buf: &PadBuf) -> NTuple {
             split(buf[PADDING_SIZE..][..SIZE].try_into().unwrap())
@@ -89,8 +91,8 @@ build_buf!(msg_head; PADDING_SIZE, 1, MSG_ID_SIZE, 1;
 );
 build_buf!(msg_out_c; TIME_SIZE, CYPHER_SIZE, SIGNATURE_SIZE);
 build_buf!(msg_out_s; TIME_SIZE, CYPHER_SIZE + SIGNATURE_SIZE);
-    // same size as msg_out, but combines cypher with signature
-    // because server doesn't need the distinction.
+// same size as msg_out, but combines cypher with signature
+// because server doesn't need the distinction.
 
 // client -> server
 build_buf!(fetch; CHAT_ID_SIZE; prepad!(pad::FETCH_PADDING););
