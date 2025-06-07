@@ -1,4 +1,9 @@
-use std::{net::{TcpListener, TcpStream, ToSocketAddrs}, path::Path, sync::Arc, thread::{self, Builder}};
+use std::{
+    net::{TcpListener, TcpStream, ToSocketAddrs},
+    path::Path,
+    sync::Arc,
+    thread::{self, Builder},
+};
 
 mod db;
 mod http;
@@ -9,29 +14,28 @@ use publichat::helpers::*;
 
 const IP_PORT_DEFAULT: &str = "localhost:7878";
 
-
 fn handle_incoming(mut stream: TcpStream, globals: &Arc<Globals>) -> Res {
     let mut pad_buf = [0; 4];
 
     let mut http_handled: u8 = 0;
-    while {  // Handle repeated HTTP requests
-        stream.peek(&mut pad_buf)
+    while {
+        stream
+            .peek(&mut pad_buf)
             .map_err(|_| "Failed to read protocol header (HTTP timeout?)")?;
         &pad_buf == b"GET "
     } {
-        http::handle(
-            stream.try_clone().map_err(|_| "Failed to clone")?,
-            globals
-        )?;
+        http::handle(stream.try_clone().map_err(|_| "Failed to clone")?, globals)?;
 
-        http_handled += 1;  // TODO: better system for dropping connections
+        http_handled += 1; // TODO: better system for dropping connections
         if http_handled >= 3 {
-            stream.shutdown(std::net::Shutdown::Both)
+            stream
+                .shutdown(std::net::Shutdown::Both)
                 .map_err(|_| "HTTP shutdown failed")?;
             return Ok(());
         }
         if http_handled == 1 {
-            stream.set_read_timeout(Some(std::time::Duration::from_secs(1)))
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(1)))
                 .map_err(|_| "Failed to set short timeout")?;
         }
     }
@@ -49,7 +53,6 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
     let globals = {
-
         // Get chat directory path (last argument)
         let data_dir = {
             if let Some(path) = args.last() {
@@ -58,7 +61,7 @@ fn main() {
                     println!("Not a directory: {:?}", path);
                     std::process::exit(1);
                 }
-                path.to_path_buf()  // put on heap
+                path.to_path_buf() // put on heap
             } else {
                 println!("No path given");
                 std::process::exit(1);
@@ -66,45 +69,27 @@ fn main() {
         };
         println!("Using directory {:?}", data_dir.canonicalize().unwrap());
 
-        // Get git hash
-        let git_hash = {
-            let output = std::process::Command::new("git")
-                .args(["rev-parse", "HEAD"])
-                .output()
-                .unwrap_or_else(|e| {
-                    println!("Failed to exec git command:\n\t{e}");
-                    std::process::exit(1);
-                });
-
-            let git_output = output.stdout;  // has a \n at the end!
-            if git_output.len() != 41
-                || *git_output.last().unwrap() != b'\n'
-                || std::str::from_utf8(&git_output).is_err() {
-                    println!("Received strange data from git");
-                    std::process::exit(1);
-                }
-
-            let mut git_hash = [0; 40];
-            git_hash.copy_from_slice(&git_output[..40]);
-            git_hash
-        };
-        println!("Using git hash {}", std::str::from_utf8(&git_hash).unwrap());
-
-        Arc::new(Globals {
-            data_dir,
-            git_hash,
-        })
+        Arc::new(Globals { data_dir })
     };
 
     let listener = {
-        // try to get address from second-to-last arg
-        let addr = args.iter().rev().nth(1).ok_or("Address not given in args")
-            .and_then(|arg| arg.to_socket_addrs()
-                .map_err(|e| {println!("\t{e}"); "Invalid addr, see above"}))
+        let addr = args
+            .iter()
+            .rev()
+            .nth(1)
+            .ok_or("Address not given in args")
+            .and_then(|arg| {
+                arg.to_socket_addrs().map_err(|e| {
+                    println!("\t{e}");
+                    "Invalid addr, see above"
+                })
+            })
             .and_then(|mut addrs| addrs.next().ok_or("Empty addr iterator?"))
             .unwrap_or_else(|e| {
                 println!("{e}; using default socket address...");
-                IP_PORT_DEFAULT.to_socket_addrs().ok()
+                IP_PORT_DEFAULT
+                    .to_socket_addrs()
+                    .ok()
                     .and_then(|mut addrs| addrs.next())
                     .unwrap_or_else(|| {
                         println!("Failed to create socket address from default!");
@@ -129,7 +114,7 @@ fn main() {
                 Err(_) => "unknown".to_string(),
             };
 
-            let builder = Builder::new().name(name);  // todo: stack size?
+            let builder = Builder::new().name(name);
             let handle = builder.spawn(move || {
                 println!("Handling {}", thread::current().name().unwrap());
                 if let Err(e) = handle_incoming(stream, &globals) {
